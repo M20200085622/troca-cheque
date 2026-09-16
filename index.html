@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Troca de Cheque</title>
+<meta name="description" content="Calculadora de juros para troca (desconto) de cheques, com suporte a cheques recorrentes.">
+
+<!-- PWA / iOS home screen setup -->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Troca Cheque">
+<meta name="theme-color" content="#0b0f14">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <h1>Troca de Cheque</h1>
+    <p class="subtitle">Calculadora de juros</p>
+  </header>
+
+  <main>
+
+    <!-- Mode switch -->
+    <div class="segmented" role="tablist" aria-label="Modo de cálculo">
+      <button class="seg-btn active" data-mode="cima" role="tab" aria-selected="true">Trocar pra cima</button>
+      <button class="seg-btn" data-mode="baixo" role="tab" aria-selected="false">Trocar pra baixo</button>
+    </div>
+
+    <p class="mode-explain" id="modeExplain"></p>
+
+    <!-- Global settings card -->
+    <section class="card">
+      <div class="field">
+        <label for="taxa">Taxa de juros (%)</label>
+        <input type="number" id="taxa" inputmode="decimal" placeholder="Ex: 8" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label for="unidade">Aplicar taxa por</label>
+        <div class="seg-mini">
+          <button class="mini-btn active" data-unit="mes">Mês</button>
+          <button class="mini-btn" data-unit="dia">Dia</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recurring helper -->
+    <section class="card">
+      <h2>Gerar cheques recorrentes</h2>
+      <p class="hint">Preenche automaticamente vários cheques mês a mês (ou dia a dia) com o mesmo valor.</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="recValor">Valor por cheque (R$)</label>
+          <input type="number" id="recValor" inputmode="decimal" placeholder="Ex: 1000">
+        </div>
+        <div class="field">
+          <label for="recQtd">Quantidade</label>
+          <input type="number" id="recQtd" inputmode="numeric" placeholder="Ex: 6" min="1" step="1">
+        </div>
+      </div>
+      <button class="btn secondary" id="btnGerar">Gerar cheques</button>
+    </section>
+
+    <!-- Checks list -->
+    <section class="card">
+      <div class="card-header-row">
+        <h2>Cheques</h2>
+        <button class="btn small" id="btnAdd">+ Adicionar cheque</button>
+      </div>
+      <div id="chequeList" class="cheque-list">
+        <!-- rows injected by JS -->
+      </div>
+      <p class="empty-hint" id="emptyHint">Nenhum cheque adicionado ainda.</p>
+    </section>
+
+    <!-- Result -->
+    <section class="card result-card">
+      <div class="result-row">
+        <span>Total trocado (soma dos valores)</span>
+        <strong id="totalBase">R$ 0,00</strong>
+      </div>
+      <div class="result-row">
+        <span>Total de juros</span>
+        <strong id="totalJuros">R$ 0,00</strong>
+      </div>
+      <div class="result-row total">
+        <span id="totalLabel">Valor final total</span>
+        <strong id="totalFinal">R$ 0,00</strong>
+      </div>
+    </section>
+
+    <button class="btn danger ghost" id="btnClear">Limpar tudo</button>
+
+    <div class="footer-space"></div>
+  </main>
+</div>
+
+<template id="rowTemplate">
+  <div class="cheque-row">
+    <div class="row-index"></div>
+    <div class="row-fields">
+      <input type="number" class="row-valor" inputmode="decimal" placeholder="Valor (R$)">
+      <input type="number" class="row-prazo" inputmode="numeric" placeholder="Prazo" min="0" step="1">
+      <span class="row-unit"></span>
+    </div>
+    <div class="row-result">R$ 0,00</div>
+    <button class="row-remove" aria-label="Remover cheque">✕</button>
+  </div>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>
