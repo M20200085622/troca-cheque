@@ -325,3 +325,10 @@ input[type="number"]:focus {
 .footer-space {
   height: 12px;
 }
+
+.app-footer {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 4px 0 0;
+}

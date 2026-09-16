@@ -3,7 +3,7 @@
 
   /** @type {{mode:'cima'|'baixo', unit:'mes'|'dia', taxa:number, cheques:{valor:number, prazo:number}[]}} */
   let state = {
-    mode: 'cima',
+    mode: 'baixo',
     unit: 'mes',
     taxa: 8,
     cheques: []
@@ -52,6 +52,25 @@
   function fmtMoney(n) {
     if (!isFinite(n)) n = 0;
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  // Formats a plain number as a BR currency string without the "R$" prefix, e.g. 1234.5 -> "1.234,50"
+  function formatCurrencyStr(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // Applies a live "type digits, they fill in as cents" currency mask to a text input.
+  // Returns the numeric value and rewrites the input's display value on every keystroke.
+  function applyCurrencyMask(inputEl) {
+    const digits = inputEl.value.replace(/\D/g, '');
+    if (!digits) {
+      inputEl.value = '';
+      return 0;
+    }
+    const value = parseInt(digits, 10) / 100;
+    inputEl.value = formatCurrencyStr(value);
+    return value;
   }
 
   function unitLabel(unit) {
@@ -107,7 +126,7 @@
       const removeEl = node.querySelector('.row-remove');
 
       idxEl.textContent = `#${idx + 1}`;
-      valorEl.value = cheque.valor === '' || cheque.valor == null ? '' : cheque.valor;
+      valorEl.value = cheque.valor === '' || cheque.valor == null ? '' : formatCurrencyStr(cheque.valor);
       prazoEl.value = cheque.prazo === '' || cheque.prazo == null ? '' : cheque.prazo;
       unitEl.textContent = unitLabel(state.unit);
 
@@ -115,7 +134,7 @@
       resultEl.textContent = fmtMoney(result);
 
       valorEl.addEventListener('input', () => {
-        state.cheques[idx].valor = valorEl.value === '' ? '' : Number(valorEl.value);
+        state.cheques[idx].valor = applyCurrencyMask(valorEl);
         saveState();
         const r = calcCheque(state.cheques[idx].valor, state.cheques[idx].prazo, state.mode, state.taxa);
         resultEl.textContent = fmtMoney(r);
@@ -185,8 +204,13 @@
     render();
   });
 
+  els.recValor.addEventListener('input', () => {
+    applyCurrencyMask(els.recValor);
+  });
+
   els.btnGerar.addEventListener('click', () => {
-    const valor = Number(els.recValor.value) || 0;
+    const digits = els.recValor.value.replace(/\D/g, '');
+    const valor = digits ? parseInt(digits, 10) / 100 : 0;
     const qtd = Math.max(1, Math.floor(Number(els.recQtd.value) || 0));
     if (!valor || !qtd) return;
     for (let i = 1; i <= qtd; i++) {
