@@ -252,7 +252,7 @@ input[type="text"]:focus {
 
 .row-fields {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr auto;
+  grid-template-columns: 1.3fr 1fr;
   gap: 6px;
   align-items: center;
 }
@@ -262,18 +262,41 @@ input[type="text"]:focus {
   font-size: 14.5px;
 }
 
-.row-unit {
+.row-dia-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.row-dia-wrap .row-dia {
+  width: 44px;
+  flex: none;
+  text-align: center;
+}
+
+.row-dia-label {
   font-size: 12px;
   color: var(--text-dim);
   white-space: nowrap;
 }
 
-.row-result {
+.row-meta {
   grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
   font-size: 12.5px;
+}
+
+.row-days {
+  color: var(--text-dim);
+}
+
+.row-result {
   color: var(--accent);
   font-weight: 700;
-  padding-left: 2px;
+  white-space: nowrap;
 }
 
 .row-remove {

@@ -65,6 +65,11 @@
           <input type="number" id="recQtd" inputmode="numeric" placeholder="Ex: 6" min="1" step="1">
         </div>
       </div>
+      <div class="field">
+        <label for="recDia">Dia de vencimento do 1º cheque</label>
+        <input type="number" id="recDia" inputmode="numeric" min="1" max="31" step="1">
+        <p class="hint">Os próximos cheques vencem no mesmo dia, um mês depois do anterior.</p>
+      </div>
       <button class="btn secondary" id="btnGerar">Gerar cheques</button>
     </section>
 
@@ -109,10 +114,15 @@
     <div class="row-index"></div>
     <div class="row-fields">
       <input type="text" class="row-valor" inputmode="numeric" placeholder="0,00">
-      <input type="number" class="row-prazo" inputmode="numeric" placeholder="Prazo" min="0" step="1">
-      <span class="row-unit"></span>
+      <div class="row-dia-wrap">
+        <input type="number" class="row-dia" inputmode="numeric" min="1" max="31" step="1">
+        <span class="row-dia-label">venc.</span>
+      </div>
     </div>
-    <div class="row-result">R$ 0,00</div>
+    <div class="row-meta">
+      <span class="row-days"></span>
+      <span class="row-result">R$ 0,00</span>
+    </div>
     <button class="row-remove" aria-label="Remover cheque">✕</button>
   </div>
 </template>
