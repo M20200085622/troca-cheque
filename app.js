@@ -37,7 +37,7 @@
     unitButtons: document.querySelectorAll('.mini-btn'),
     recValor: document.getElementById('recValor'),
     recQtd: document.getElementById('recQtd'),
-    recDia: document.getElementById('recDia'),
+    recVencimento: document.getElementById('recVencimento'),
     btnGerar: document.getElementById('btnGerar'),
     btnAdd: document.getElementById('btnAdd'),
     chequeList: document.getElementById('chequeList'),
@@ -67,10 +67,6 @@
     return isoDateFromDate(todayMidnight());
   }
 
-  function todayDayOfMonth() {
-    return todayMidnight().getDate();
-  }
-
   function isoDateFromDate(d) {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -97,17 +93,6 @@
 
   function daysBetween(fromDate, toDate) {
     return Math.round((toDate - fromDate) / 86400000);
-  }
-
-  // Given a day-of-month, finds the nearest occurrence on/after `baseDate`
-  // (this month if it hasn't passed yet, otherwise next month).
-  function resolveDueDateFromDay(day, baseDate) {
-    day = Math.min(31, Math.max(1, Math.floor(day) || 1));
-    let candidate = clampedDate(baseDate.getFullYear(), baseDate.getMonth(), day);
-    if (candidate < baseDate) {
-      candidate = clampedDate(baseDate.getFullYear(), baseDate.getMonth() + 1, day);
-    }
-    return candidate;
   }
 
   // ---- money helpers ----
@@ -198,14 +183,15 @@
       const row = node.querySelector('.cheque-row');
       const idxEl = node.querySelector('.row-index');
       const valorEl = node.querySelector('.row-valor');
-      const diaEl = node.querySelector('.row-dia');
+      const vencimentoEl = node.querySelector('.row-vencimento');
       const daysEl = node.querySelector('.row-days');
       const resultEl = node.querySelector('.row-result');
       const removeEl = node.querySelector('.row-remove');
 
       idxEl.textContent = `#${idx + 1}`;
       valorEl.value = cheque.valor === '' || cheque.valor == null ? '' : formatCurrencyStr(cheque.valor);
-      diaEl.value = parseISODate(cheque.vencimento).getDate();
+      vencimentoEl.min = todayISODate();
+      vencimentoEl.value = cheque.vencimento;
 
       const updateRowOutput = () => {
         const { days } = prazoInfo(cheque.vencimento, state.unit);
@@ -222,10 +208,8 @@
         renderTotals();
       });
 
-      diaEl.addEventListener('input', () => {
-        const day = Number(diaEl.value) || todayDayOfMonth();
-        const due = resolveDueDateFromDay(day, todayMidnight());
-        state.cheques[idx].vencimento = isoDateFromDate(due);
+      vencimentoEl.addEventListener('input', () => {
+        state.cheques[idx].vencimento = vencimentoEl.value || todayISODate();
         saveState();
         updateRowOutput();
         renderTotals();
@@ -294,10 +278,9 @@
     const digits = els.recValor.value.replace(/\D/g, '');
     const valor = digits ? parseInt(digits, 10) / 100 : 0;
     const qtd = Math.max(1, Math.floor(Number(els.recQtd.value) || 0));
-    const day = Number(els.recDia.value) || todayDayOfMonth();
+    const firstDue = parseISODate(els.recVencimento.value || todayISODate());
     if (!valor || !qtd) return;
 
-    const firstDue = resolveDueDateFromDay(day, todayMidnight());
     for (let i = 0; i < qtd; i++) {
       const due = i === 0 ? firstDue : addMonths(firstDue, i);
       state.cheques.push({ valor, vencimento: isoDateFromDate(due) });
@@ -315,7 +298,8 @@
 
   // ---- init ----
   loadState();
-  els.recDia.value = todayDayOfMonth();
+  els.recVencimento.value = todayISODate();
+  els.recVencimento.min = todayISODate();
   render();
 
   if ('serviceWorker' in navigator) {

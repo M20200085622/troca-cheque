@@ -66,8 +66,8 @@
         </div>
       </div>
       <div class="field">
-        <label for="recDia">Dia de vencimento do 1º cheque</label>
-        <input type="number" id="recDia" inputmode="numeric" min="1" max="31" step="1">
+        <label for="recVencimento">Data do 1º vencimento</label>
+        <input type="date" id="recVencimento">
         <p class="hint">Os próximos cheques vencem no mesmo dia, um mês depois do anterior.</p>
       </div>
       <button class="btn secondary" id="btnGerar">Gerar cheques</button>
@@ -114,10 +114,7 @@
     <div class="row-index"></div>
     <div class="row-fields">
       <input type="text" class="row-valor" inputmode="numeric" placeholder="0,00">
-      <div class="row-dia-wrap">
-        <input type="number" class="row-dia" inputmode="numeric" min="1" max="31" step="1">
-        <span class="row-dia-label">venc.</span>
-      </div>
+      <input type="date" class="row-vencimento">
     </div>
     <div class="row-meta">
       <span class="row-days"></span>
