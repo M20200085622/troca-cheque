@@ -149,7 +149,8 @@ label {
   font-weight: 600;
 }
 
-input[type="number"] {
+input[type="number"],
+input[type="text"] {
   background: var(--input-bg);
   border: 1px solid var(--card-border);
   color: var(--text);
@@ -160,7 +161,8 @@ input[type="number"] {
   outline: none;
 }
 
-input[type="number"]:focus {
+input[type="number"]:focus,
+input[type="text"]:focus {
   border-color: var(--accent);
 }
 
