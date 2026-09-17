@@ -1,4 +1,4 @@
-const CACHE_NAME = 'troca-cheque-v7';
+const CACHE_NAME = 'troca-cheque-v8';
 const ASSETS = [
   './',
   './index.html',

@@ -52,7 +52,7 @@
 
   const MODE_EXPLAIN = {
     cima: 'Você troca (adianta) o valor agora e o cheque deve cobrir esse valor corrigido para cima, em juros compostos: valor × (1 + taxa) elevado ao prazo até o vencimento.',
-    baixo: 'O cheque tem um valor de face; os juros compostos do prazo são calculados e descontados dele: valor a pagar = valor do cheque − juros, onde juros = valor × [1 − (1 − taxa) elevado ao prazo].'
+    baixo: 'O cheque tem um valor de face; os juros compostos crescem mês a mês sobre o saldo (montante = valor × (1+taxa) elevado ao prazo) e são descontados dele: valor a pagar = valor do cheque − juros acumulados.'
   };
 
   // ---- date helpers ----
@@ -140,17 +140,19 @@
 
   // Juros simples (linear), o padrão do mercado para desconto de cheque:
   // o desconto total é taxa x prazo, sem compor período a período.
-  // Juros compostos: cada período de "prazo" incide sobre o saldo já corrigido do anterior.
-  // No modo "pra baixo", o valor a pagar é o valor do cheque menos esses juros compostos:
-  // juros = valor x [1 - (1-taxa)^prazo]  =>  a pagar = valor - juros = valor x (1-taxa)^prazo
+  // Juros compostos: o montante (valor + juros) cresce mês a mês sobre o saldo já
+  // corrigido do mês anterior, igual a uma dívida capitalizando: montante = valor x (1+taxa)^prazo.
+  // "Pra cima" cobra esse montante. "Pra baixo" desconta do cheque os juros acumulados
+  // desse mesmo montante: juros = montante - valor  =>  a pagar = valor - juros = 2*valor - montante.
   function calcCheque(valor, vencimentoISO, mode, unit, taxaPercent) {
     const v = Number(valor) || 0;
     const { n } = prazoInfo(vencimentoISO, unit);
     const i = (Number(taxaPercent) || 0) / 100;
+    const montante = v * Math.pow(1 + i, n);
     if (mode === 'cima') {
-      return v * Math.pow(1 + i, n);
+      return montante;
     }
-    return v * Math.pow(1 - i, n);
+    return Math.max(0, 2 * v - montante);
   }
 
   function diasLabel(days) {
