@@ -51,8 +51,8 @@
   };
 
   const MODE_EXPLAIN = {
-    cima: 'Você troca (adianta) o valor agora e o cheque deve cobrir esse valor corrigido para cima, em juros compostos: valor × (1 + taxa) elevado ao prazo até o vencimento.',
-    baixo: 'O cheque tem um valor de face; os juros compostos crescem mês a mês sobre o saldo (montante = valor × (1+taxa) elevado ao prazo) e são descontados dele: valor a pagar = valor do cheque − juros acumulados.'
+    cima: 'Você troca (adianta) o valor agora; o cheque precisa ter o valor de face que, descontado, cobre exatamente esse valor: valor ÷ [1 − (taxa × prazo)].',
+    baixo: 'O cheque tem um valor de face e você calcula quanto pagar hoje com desconto, em juros simples: valor × [1 − (taxa × prazo)].'
   };
 
   // ---- date helpers ----
@@ -144,15 +144,22 @@
   // corrigido do mês anterior, igual a uma dívida capitalizando: montante = valor x (1+taxa)^prazo.
   // "Pra cima" cobra esse montante. "Pra baixo" desconta do cheque os juros acumulados
   // desse mesmo montante: juros = montante - valor  =>  a pagar = valor - juros = 2*valor - montante.
+  function roundCents(n) {
+    return Math.round(n * 100) / 100;
+  }
+
+  // Juros simples: fator = 1 - (taxa x prazo). "Pra baixo" desconta o cheque multiplicando
+  // por esse fator; "pra cima" é o inverso exato, dividindo por ele (o valor de face
+  // necessário pra que, descontado, volte a valer o que foi trocado hoje).
   function calcCheque(valor, vencimentoISO, mode, unit, taxaPercent) {
     const v = Number(valor) || 0;
     const { n } = prazoInfo(vencimentoISO, unit);
     const i = (Number(taxaPercent) || 0) / 100;
-    const montante = v * Math.pow(1 + i, n);
+    const fator = 1 - i * n;
     if (mode === 'cima') {
-      return montante;
+      return roundCents(v / Math.max(0.0001, fator));
     }
-    return Math.max(0, 2 * v - montante);
+    return roundCents(Math.max(0, v * fator));
   }
 
   function diasLabel(days) {
