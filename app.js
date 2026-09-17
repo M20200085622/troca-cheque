@@ -1,12 +1,13 @@
 (() => {
   const STORAGE_KEY = 'trocaCheque.v2';
 
-  /** @type {{mode:'cima'|'baixo', unit:'mes'|'dia', taxa:number, cheques:{valor:number, vencimento:string}[]}} */
+  /** @type {{mode:'cima'|'baixo', unit:'mes'|'dia', taxa:number, cheques:{valor:number, vencimento:string}[], financiamento: {target:'pv'|'n'|'i'|'pmt', pv:number|'', n:number|'', i:number|'', pmt:number|''}}} */
   let state = {
     mode: 'baixo',
     unit: 'mes',
     taxa: 8,
-    cheques: []
+    cheques: [],
+    financiamento: { target: 'pmt', pv: '', n: '', i: '', pmt: '' }
   };
 
   function loadState() {
@@ -31,6 +32,11 @@
   }
 
   const els = {
+    appTitle: document.getElementById('appTitle'),
+    appSubtitle: document.getElementById('appSubtitle'),
+    navButtons: document.querySelectorAll('.app-nav-btn'),
+    viewCheque: document.getElementById('viewCheque'),
+    viewFinanciamento: document.getElementById('viewFinanciamento'),
     segButtons: document.querySelectorAll('.seg-btn'),
     modeExplain: document.getElementById('modeExplain'),
     taxa: document.getElementById('taxa'),
@@ -48,6 +54,15 @@
     totalLabel: document.getElementById('totalLabel'),
     btnClear: document.getElementById('btnClear'),
     rowTemplate: document.getElementById('rowTemplate'),
+    finTargetButtons: document.querySelectorAll('.fin-target-btn'),
+    finPv: document.getElementById('finPv'),
+    finN: document.getElementById('finN'),
+    finI: document.getElementById('finI'),
+    finPmt: document.getElementById('finPmt'),
+    finTotalPago: document.getElementById('finTotalPago'),
+    finTotalJuros: document.getElementById('finTotalJuros'),
+    finError: document.getElementById('finError'),
+    finClear: document.getElementById('finClear'),
   };
 
   const MODE_EXPLAIN = {
@@ -168,6 +183,46 @@
     return `vence em ${days} dias`;
   }
 
+  // ---- financiamento (Tabela Price: parcelas fixas, juros compostos) ----
+  // pmt = pv x i / (1-(1+i)^-n)   <=>   pv = pmt x (1-(1+i)^-n) / i
+
+  function finPMT(pv, n, i) {
+    if (i === 0) return pv / n;
+    return (pv * i) / (1 - Math.pow(1 + i, -n));
+  }
+
+  function finPV(pmt, n, i) {
+    if (i === 0) return pmt * n;
+    return (pmt * (1 - Math.pow(1 + i, -n))) / i;
+  }
+
+  function finN(pv, pmt, i) {
+    if (i === 0) return pv / pmt;
+    const ratio = 1 - (pv * i) / pmt;
+    if (ratio <= 0) return null; // prestação não cobre nem os juros do 1º período
+    return -Math.log(ratio) / Math.log(1 + i);
+  }
+
+  // Não existe fórmula fechada para a taxa; resolve por bisseção (a prestação
+  // cresce de forma monótona com a taxa, então dá pra fechar o intervalo).
+  function finI(pv, n, pmt) {
+    if (pmt * n <= pv) return null; // nem a 0% de juros a prestação cobriria o principal
+    const f = (i) => finPMT(pv, n, i) - pmt;
+    let lo = 0;
+    let hi = 1;
+    let guard = 0;
+    while (f(hi) < 0 && guard < 60) {
+      hi *= 2;
+      guard++;
+    }
+    if (f(hi) < 0) return null;
+    for (let k = 0; k < 100; k++) {
+      const mid = (lo + hi) / 2;
+      if (f(mid) > 0) hi = mid; else lo = mid;
+    }
+    return (lo + hi) / 2;
+  }
+
   // ---- render ----
 
   function render() {
@@ -259,6 +314,79 @@
     els.totalFinal.textContent = fmtMoney(final);
   }
 
+  function renderFinanciamento() {
+    const fin = state.financiamento;
+    const fieldEls = { pv: els.finPv, n: els.finN, i: els.finI, pmt: els.finPmt };
+
+    els.finTargetButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.target === fin.target);
+    });
+
+    Object.entries(fieldEls).forEach(([key, el]) => {
+      const isTarget = fin.target === key;
+      el.readOnly = isTarget;
+      el.classList.toggle('fin-computed', isTarget);
+      if (document.activeElement === el) return;
+      const v = fin[key];
+      if (key === 'pv' || key === 'pmt') {
+        el.value = v === '' || v == null ? '' : formatCurrencyStr(v);
+      } else {
+        el.value = v === '' || v == null ? '' : v;
+      }
+    });
+
+    computeFinanciamento();
+  }
+
+  function computeFinanciamento() {
+    const fin = state.financiamento;
+    const pv = fin.pv === '' || fin.pv == null ? null : Number(fin.pv);
+    const n = fin.n === '' || fin.n == null ? null : Number(fin.n);
+    const i = fin.i === '' || fin.i == null ? null : Number(fin.i) / 100;
+    const pmt = fin.pmt === '' || fin.pmt == null ? null : Number(fin.pmt);
+
+    let ok = false;
+
+    if (fin.target === 'pmt' && pv > 0 && n > 0 && i != null && i >= 0) {
+      fin.pmt = roundCents(finPMT(pv, n, i));
+      els.finPmt.value = formatCurrencyStr(fin.pmt);
+      ok = true;
+    } else if (fin.target === 'pv' && n > 0 && i != null && i >= 0 && pmt > 0) {
+      fin.pv = roundCents(finPV(pmt, n, i));
+      els.finPv.value = formatCurrencyStr(fin.pv);
+      ok = true;
+    } else if (fin.target === 'n' && pv > 0 && i != null && i >= 0 && pmt > 0) {
+      const raw = finN(pv, pmt, i);
+      if (raw != null && isFinite(raw) && raw > 0) {
+        fin.n = Math.round(raw * 100) / 100;
+        els.finN.value = fin.n;
+        ok = true;
+      }
+    } else if (fin.target === 'i' && pv > 0 && n > 0 && pmt > 0) {
+      const raw = finI(pv, n, pmt);
+      if (raw != null && isFinite(raw) && raw >= 0) {
+        fin.i = Math.round(raw * 100 * 100) / 100;
+        els.finI.value = fin.i;
+        ok = true;
+      }
+    }
+
+    const attempted = pv != null || n != null || i != null || pmt != null;
+    els.finError.style.display = !ok && attempted ? 'block' : 'none';
+
+    if (ok) {
+      const totalPago = roundCents((Number(fin.pmt) || 0) * (Number(fin.n) || 0));
+      const totalJuros = roundCents(totalPago - (Number(fin.pv) || 0));
+      els.finTotalPago.textContent = fmtMoney(totalPago);
+      els.finTotalJuros.textContent = fmtMoney(totalJuros);
+    } else {
+      els.finTotalPago.textContent = fmtMoney(0);
+      els.finTotalJuros.textContent = fmtMoney(0);
+    }
+
+    saveState();
+  }
+
   // ---- events ----
 
   els.segButtons.forEach(btn => {
@@ -316,11 +444,65 @@
     render();
   });
 
+  els.navButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.view;
+      els.navButtons.forEach(b => {
+        const active = b.dataset.view === view;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', String(active));
+      });
+      els.viewCheque.hidden = view !== 'cheque';
+      els.viewFinanciamento.hidden = view !== 'financiamento';
+      els.appTitle.textContent = view === 'cheque' ? 'Troca de Cheque' : 'Financiamento';
+      els.appSubtitle.textContent = view === 'cheque' ? 'Calculadora de juros' : 'Simulador de parcelas (Tabela Price)';
+    });
+  });
+
+  els.finTargetButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.financiamento.target = btn.dataset.target;
+      renderFinanciamento();
+    });
+  });
+
+  els.finPv.addEventListener('input', () => {
+    if (state.financiamento.target === 'pv') return;
+    state.financiamento.pv = applyCurrencyMask(els.finPv);
+    computeFinanciamento();
+  });
+
+  els.finN.addEventListener('input', () => {
+    if (state.financiamento.target === 'n') return;
+    state.financiamento.n = els.finN.value === '' ? '' : Number(els.finN.value);
+    computeFinanciamento();
+  });
+
+  els.finI.addEventListener('input', () => {
+    if (state.financiamento.target === 'i') return;
+    state.financiamento.i = els.finI.value === '' ? '' : Number(els.finI.value);
+    computeFinanciamento();
+  });
+
+  els.finPmt.addEventListener('input', () => {
+    if (state.financiamento.target === 'pmt') return;
+    state.financiamento.pmt = applyCurrencyMask(els.finPmt);
+    computeFinanciamento();
+  });
+
+  els.finClear.addEventListener('click', () => {
+    if (!confirm('Limpar os campos do financiamento?')) return;
+    state.financiamento = { target: 'pmt', pv: '', n: '', i: '', pmt: '' };
+    saveState();
+    renderFinanciamento();
+  });
+
   // ---- init ----
   loadState();
   els.recVencimento.value = defaultVencimentoISODate();
   els.recVencimento.min = todayISODate();
   render();
+  renderFinanciamento();
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

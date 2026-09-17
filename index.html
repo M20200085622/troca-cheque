@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <title>Troca de Cheque</title>
-<meta name="description" content="Calculadora de juros para troca (desconto) de cheques, com suporte a cheques recorrentes.">
+<meta name="description" content="Calculadora de juros para troca (desconto) de cheques e simulador de financiamento.">
 
 <!-- PWA / iOS home screen setup -->
 <link rel="manifest" href="manifest.json">
@@ -22,11 +22,18 @@
 <div class="app">
 
   <header class="topbar">
-    <h1>Troca de Cheque</h1>
-    <p class="subtitle">Calculadora de juros</p>
+    <h1 id="appTitle">Troca de Cheque</h1>
+    <p class="subtitle" id="appSubtitle">Calculadora de juros</p>
   </header>
 
+  <nav class="app-nav" role="tablist" aria-label="Calculadora">
+    <button class="app-nav-btn active" data-view="cheque" role="tab" aria-selected="true">Troca de Cheque</button>
+    <button class="app-nav-btn" data-view="financiamento" role="tab" aria-selected="false">Financiamento</button>
+  </nav>
+
   <main>
+
+  <section id="viewCheque" class="view">
 
     <!-- Mode switch -->
     <div class="segmented" role="tablist" aria-label="Modo de cálculo">
@@ -102,6 +109,58 @@
     </section>
 
     <button class="btn danger ghost" id="btnClear">Limpar tudo</button>
+
+  </section>
+
+  <section id="viewFinanciamento" class="view" hidden>
+
+    <p class="mode-explain">Preencha 3 dos 4 campos e o app calcula o quarto automaticamente, no sistema de parcelas fixas (Tabela Price).</p>
+
+    <section class="card">
+      <label class="field-label-top">O que calcular?</label>
+      <div class="fin-target-grid">
+        <button class="fin-target-btn" data-target="pv">Valor financiado</button>
+        <button class="fin-target-btn" data-target="n">Qtd. de meses</button>
+        <button class="fin-target-btn" data-target="i">Taxa mensal</button>
+        <button class="fin-target-btn active" data-target="pmt">Prestação</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="field">
+        <label for="finPv">Valor financiado (R$)</label>
+        <input type="text" id="finPv" inputmode="numeric" placeholder="Ex: 350.000,00">
+      </div>
+      <div class="field">
+        <label for="finN">Quantidade de meses</label>
+        <input type="number" id="finN" inputmode="decimal" placeholder="Ex: 20" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="finI">Taxa de juros mensal (%)</label>
+        <input type="number" id="finI" inputmode="decimal" placeholder="Ex: 2,5" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label for="finPmt">Valor da prestação (R$)</label>
+        <input type="text" id="finPmt" inputmode="numeric" placeholder="Ex: 22.451,50">
+      </div>
+    </section>
+
+    <section class="card result-card">
+      <div class="result-row">
+        <span>Total pago (prestação × meses)</span>
+        <strong id="finTotalPago">R$ 0,00</strong>
+      </div>
+      <div class="result-row total">
+        <span>Total de juros</span>
+        <strong id="finTotalJuros">R$ 0,00</strong>
+      </div>
+    </section>
+
+    <p class="empty-hint" id="finError" style="display:none;">Preencha os outros 3 campos com valores válidos.</p>
+
+    <button class="btn danger ghost" id="finClear">Limpar tudo</button>
+
+  </section>
 
     <footer class="app-footer">Desenvolvido por Gabriel V.</footer>
 
