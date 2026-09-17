@@ -1,13 +1,14 @@
 (() => {
   const STORAGE_KEY = 'trocaCheque.v2';
 
-  /** @type {{mode:'cima'|'baixo', unit:'mes'|'dia', taxa:number, cheques:{valor:number, vencimento:string}[], financiamento: {target:'pv'|'n'|'i'|'pmt', pv:number|'', n:number|'', i:number|'', pmt:number|''}}} */
+  /** @type {{mode:'cima'|'baixo', unit:'mes'|'dia', taxa:number, cheques:{valor:number, vencimento:string}[], financiamento: {target:'pv'|'n'|'i'|'pmt', pv:number|'', n:number|'', i:number|'', pmt:number|''}, financCheque: {pv:number|'', qtd:number|'', taxa:number|'', unit:'mes'|'dia', vencimento:string}}} */
   let state = {
     mode: 'baixo',
     unit: 'mes',
     taxa: 8,
     cheques: [],
-    financiamento: { target: 'pmt', pv: '', n: '', i: '', pmt: '' }
+    financiamento: { target: 'pmt', pv: '', n: '', i: '', pmt: '' },
+    financCheque: { pv: '', qtd: '', taxa: '', unit: 'mes', vencimento: '' }
   };
 
   function loadState() {
@@ -37,10 +38,11 @@
     navButtons: document.querySelectorAll('.app-nav-btn'),
     viewCheque: document.getElementById('viewCheque'),
     viewFinanciamento: document.getElementById('viewFinanciamento'),
+    viewFinancCheque: document.getElementById('viewFinancCheque'),
     segButtons: document.querySelectorAll('.seg-btn'),
     modeExplain: document.getElementById('modeExplain'),
     taxa: document.getElementById('taxa'),
-    unitButtons: document.querySelectorAll('.mini-btn'),
+    unitButtons: document.querySelectorAll('[data-unit]'),
     recValor: document.getElementById('recValor'),
     recQtd: document.getElementById('recQtd'),
     recVencimento: document.getElementById('recVencimento'),
@@ -63,6 +65,17 @@
     finTotalJuros: document.getElementById('finTotalJuros'),
     finError: document.getElementById('finError'),
     finClear: document.getElementById('finClear'),
+    fcPv: document.getElementById('fcPv'),
+    fcQtd: document.getElementById('fcQtd'),
+    fcTaxa: document.getElementById('fcTaxa'),
+    fcUnitButtons: document.querySelectorAll('[data-fcunit]'),
+    fcVencimento: document.getElementById('fcVencimento'),
+    fcParcela: document.getElementById('fcParcela'),
+    fcTotalPago: document.getElementById('fcTotalPago'),
+    fcTotalJuros: document.getElementById('fcTotalJuros'),
+    fcError: document.getElementById('fcError'),
+    fcGerar: document.getElementById('fcGerar'),
+    fcClear: document.getElementById('fcClear'),
   };
 
   const MODE_EXPLAIN = {
@@ -221,6 +234,33 @@
       if (f(mid) > 0) hi = mid; else lo = mid;
     }
     return (lo + hi) / 2;
+  }
+
+  // ---- financiamento de cheque (parcelas iguais em juros simples) ----
+  // Resolve a parcela P tal que a soma dos descontos simples de cada vencimento real
+  // bate exatamente o valor financiado: pv = P x sum(1 - i x prazo_t), pra t=1..qtd.
+  // Usa as mesmas datas (mesmo dia do mês, +1 mês por parcela) e o mesmo prazo em dias
+  // corridos que "Trocar pra baixo" usa, então descontar os cheques gerados aqui bate certo.
+  function financCequeSchedule(qtd, startISO) {
+    const start = parseISODate(startISO);
+    const dates = [];
+    for (let t = 0; t < qtd; t++) {
+      const due = t === 0 ? start : addMonths(start, t);
+      dates.push(isoDateFromDate(due));
+    }
+    return dates;
+  }
+
+  function financChequeCalc(pv, qtd, taxaPercent, unit, startISO) {
+    const i = (Number(taxaPercent) || 0) / 100;
+    const dates = financCequeSchedule(qtd, startISO);
+    let sumFator = 0;
+    dates.forEach(d => {
+      const { n } = prazoInfo(d, unit);
+      sumFator += (1 - i * n);
+    });
+    if (sumFator <= 0) return { parcela: null, dates };
+    return { parcela: roundCents(pv / sumFator), dates };
   }
 
   // ---- render ----
@@ -387,6 +427,67 @@
     saveState();
   }
 
+  function renderFinancCheque() {
+    const fc = state.financCheque;
+
+    els.fcUnitButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.fcunit === fc.unit);
+    });
+
+    if (document.activeElement !== els.fcPv) {
+      els.fcPv.value = fc.pv === '' || fc.pv == null ? '' : formatCurrencyStr(fc.pv);
+    }
+    if (document.activeElement !== els.fcQtd) {
+      els.fcQtd.value = fc.qtd === '' || fc.qtd == null ? '' : fc.qtd;
+    }
+    if (document.activeElement !== els.fcTaxa) {
+      els.fcTaxa.value = fc.taxa === '' || fc.taxa == null ? '' : fc.taxa;
+    }
+    if (document.activeElement !== els.fcVencimento) {
+      els.fcVencimento.value = fc.vencimento || defaultVencimentoISODate();
+    }
+    els.fcVencimento.min = todayISODate();
+
+    computeFinancCheque();
+  }
+
+  function computeFinancCheque() {
+    const fc = state.financCheque;
+    const pv = fc.pv === '' || fc.pv == null ? null : Number(fc.pv);
+    const qtd = fc.qtd === '' || fc.qtd == null ? null : Math.floor(Number(fc.qtd));
+    const taxa = fc.taxa === '' || fc.taxa == null ? null : Number(fc.taxa);
+    const startISO = fc.vencimento || defaultVencimentoISODate();
+
+    let ok = false;
+    let parcela = null;
+
+    if (pv > 0 && qtd > 0 && taxa != null && taxa >= 0) {
+      const result = financChequeCalc(pv, qtd, taxa, fc.unit, startISO);
+      if (result.parcela != null && isFinite(result.parcela) && result.parcela > 0) {
+        parcela = result.parcela;
+        ok = true;
+      }
+    }
+
+    const attempted = pv != null || qtd != null || taxa != null;
+    els.fcError.style.display = !ok && attempted ? 'block' : 'none';
+    els.fcGerar.disabled = !ok;
+
+    if (ok) {
+      const totalPago = roundCents(parcela * qtd);
+      const totalJuros = roundCents(totalPago - pv);
+      els.fcParcela.textContent = fmtMoney(parcela);
+      els.fcTotalPago.textContent = fmtMoney(totalPago);
+      els.fcTotalJuros.textContent = fmtMoney(totalJuros);
+    } else {
+      els.fcParcela.textContent = fmtMoney(0);
+      els.fcTotalPago.textContent = fmtMoney(0);
+      els.fcTotalJuros.textContent = fmtMoney(0);
+    }
+
+    saveState();
+  }
+
   // ---- events ----
 
   els.segButtons.forEach(btn => {
@@ -444,19 +545,27 @@
     render();
   });
 
-  els.navButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const view = btn.dataset.view;
-      els.navButtons.forEach(b => {
-        const active = b.dataset.view === view;
-        b.classList.toggle('active', active);
-        b.setAttribute('aria-selected', String(active));
-      });
-      els.viewCheque.hidden = view !== 'cheque';
-      els.viewFinanciamento.hidden = view !== 'financiamento';
-      els.appTitle.textContent = view === 'cheque' ? 'Troca de Cheque' : 'Financiamento';
-      els.appSubtitle.textContent = view === 'cheque' ? 'Calculadora de juros' : 'Simulador de parcelas (Tabela Price)';
+  const VIEW_TITLES = {
+    cheque: { title: 'Troca de Cheque', subtitle: 'Calculadora de juros' },
+    financiamento: { title: 'Financiamento', subtitle: 'Simulador de parcelas (Tabela Price)' },
+    financcheque: { title: 'Financ. Cheque', subtitle: 'Parcelas em juros simples pra descontar depois' },
+  };
+
+  function switchView(view) {
+    els.navButtons.forEach(b => {
+      const active = b.dataset.view === view;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', String(active));
     });
+    els.viewCheque.hidden = view !== 'cheque';
+    els.viewFinanciamento.hidden = view !== 'financiamento';
+    els.viewFinancCheque.hidden = view !== 'financcheque';
+    els.appTitle.textContent = VIEW_TITLES[view].title;
+    els.appSubtitle.textContent = VIEW_TITLES[view].subtitle;
+  }
+
+  els.navButtons.forEach(btn => {
+    btn.addEventListener('click', () => switchView(btn.dataset.view));
   });
 
   els.finTargetButtons.forEach(btn => {
@@ -497,12 +606,68 @@
     renderFinanciamento();
   });
 
+  els.fcPv.addEventListener('input', () => {
+    state.financCheque.pv = applyCurrencyMask(els.fcPv);
+    computeFinancCheque();
+  });
+
+  els.fcQtd.addEventListener('input', () => {
+    state.financCheque.qtd = els.fcQtd.value === '' ? '' : Number(els.fcQtd.value);
+    computeFinancCheque();
+  });
+
+  els.fcTaxa.addEventListener('input', () => {
+    state.financCheque.taxa = els.fcTaxa.value === '' ? '' : Number(els.fcTaxa.value);
+    computeFinancCheque();
+  });
+
+  els.fcUnitButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.financCheque.unit = btn.dataset.fcunit;
+      saveState();
+      renderFinancCheque();
+    });
+  });
+
+  els.fcVencimento.addEventListener('input', () => {
+    state.financCheque.vencimento = els.fcVencimento.value || defaultVencimentoISODate();
+    computeFinancCheque();
+  });
+
+  els.fcGerar.addEventListener('click', () => {
+    const fc = state.financCheque;
+    const pv = Number(fc.pv) || 0;
+    const qtd = Math.floor(Number(fc.qtd)) || 0;
+    const startISO = fc.vencimento || defaultVencimentoISODate();
+    const result = financChequeCalc(pv, qtd, fc.taxa, fc.unit, startISO);
+    if (!result.parcela) return;
+
+    if (state.cheques.length > 0 && !confirm('Isso substitui a lista de cheques atual da aba Troca. Continuar?')) return;
+
+    state.cheques = result.dates.map(vencimento => ({ valor: result.parcela, vencimento }));
+    state.taxa = fc.taxa;
+    state.unit = fc.unit;
+    state.mode = 'baixo';
+    saveState();
+    render();
+    switchView('cheque');
+  });
+
+  els.fcClear.addEventListener('click', () => {
+    if (!confirm('Limpar os campos do financiamento de cheque?')) return;
+    state.financCheque = { pv: '', qtd: '', taxa: '', unit: 'mes', vencimento: '' };
+    saveState();
+    renderFinancCheque();
+  });
+
   // ---- init ----
   loadState();
   els.recVencimento.value = defaultVencimentoISODate();
   els.recVencimento.min = todayISODate();
   render();
   renderFinanciamento();
+  if (!state.financCheque.vencimento) state.financCheque.vencimento = defaultVencimentoISODate();
+  renderFinancCheque();
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

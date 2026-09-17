@@ -27,8 +27,9 @@
   </header>
 
   <nav class="app-nav" role="tablist" aria-label="Calculadora">
-    <button class="app-nav-btn active" data-view="cheque" role="tab" aria-selected="true">Troca de Cheque</button>
+    <button class="app-nav-btn active" data-view="cheque" role="tab" aria-selected="true">Troca</button>
     <button class="app-nav-btn" data-view="financiamento" role="tab" aria-selected="false">Financiamento</button>
+    <button class="app-nav-btn" data-view="financcheque" role="tab" aria-selected="false">Financ. Cheque</button>
   </nav>
 
   <main>
@@ -159,6 +160,59 @@
     <p class="empty-hint" id="finError" style="display:none;">Preencha os outros 3 campos com valores válidos.</p>
 
     <button class="btn danger ghost" id="finClear">Limpar tudo</button>
+
+  </section>
+
+  <section id="viewFinancCheque" class="view" hidden>
+
+    <p class="mode-explain">Monta parcelas iguais em juros simples — a mesma conta do "Trocar pra baixo" — pra que, ao descontar os cheques gerados, o total bata certinho no valor financiado.</p>
+
+    <section class="card">
+      <div class="field">
+        <label for="fcPv">Valor financiado (R$)</label>
+        <input type="text" id="fcPv" inputmode="numeric" placeholder="Ex: 350.000,00">
+      </div>
+      <div class="field">
+        <label for="fcQtd">Quantidade de parcelas</label>
+        <input type="number" id="fcQtd" inputmode="numeric" placeholder="Ex: 20" min="1" step="1">
+      </div>
+      <div class="field">
+        <label for="fcTaxa">Taxa de juros (%)</label>
+        <input type="number" id="fcTaxa" inputmode="decimal" placeholder="Ex: 2,5" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label for="fcUnidade">Aplicar taxa por</label>
+        <div class="seg-mini">
+          <button class="mini-btn active" data-fcunit="mes">Mês</button>
+          <button class="mini-btn" data-fcunit="dia">Dia</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fcVencimento">Data do 1º vencimento</label>
+        <input type="date" id="fcVencimento">
+        <p class="hint">As próximas parcelas vencem no mesmo dia, um mês depois da anterior.</p>
+      </div>
+    </section>
+
+    <section class="card result-card">
+      <div class="result-row total">
+        <span>Valor de cada parcela</span>
+        <strong id="fcParcela">R$ 0,00</strong>
+      </div>
+      <div class="result-row">
+        <span>Total pago (parcela × quantidade)</span>
+        <strong id="fcTotalPago">R$ 0,00</strong>
+      </div>
+      <div class="result-row">
+        <span>Total de juros</span>
+        <strong id="fcTotalJuros">R$ 0,00</strong>
+      </div>
+    </section>
+
+    <p class="empty-hint" id="fcError" style="display:none;">Preencha valor, quantidade e taxa com valores válidos.</p>
+
+    <button class="btn secondary" id="fcGerar">Gerar estes cheques na aba Troca</button>
+    <button class="btn danger ghost" id="fcClear">Limpar tudo</button>
 
   </section>
 
