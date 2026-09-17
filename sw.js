@@ -1,4 +1,4 @@
-const CACHE_NAME = 'troca-cheque-v11';
+const CACHE_NAME = 'troca-cheque-v12';
 const ASSETS = [
   './',
   './index.html',
@@ -28,8 +28,10 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // 'no-store' bypasses the browser's own HTTP cache, not just this cache API store,
+  // so a stale app.js can never be paired with a fresh index.html (or vice versa).
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-store' })
       .then((networkResponse) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse.clone()));
         return networkResponse;

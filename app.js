@@ -36,9 +36,6 @@
     appTitle: document.getElementById('appTitle'),
     appSubtitle: document.getElementById('appSubtitle'),
     navButtons: document.querySelectorAll('.app-nav-btn'),
-    viewCheque: document.getElementById('viewCheque'),
-    viewFinanciamento: document.getElementById('viewFinanciamento'),
-    viewFinancCheque: document.getElementById('viewFinancCheque'),
     segButtons: document.querySelectorAll('.seg-btn'),
     modeExplain: document.getElementById('modeExplain'),
     taxa: document.getElementById('taxa'),
@@ -557,11 +554,12 @@
       b.classList.toggle('active', active);
       b.setAttribute('aria-selected', String(active));
     });
-    els.viewCheque.hidden = view !== 'cheque';
-    els.viewFinanciamento.hidden = view !== 'financiamento';
-    els.viewFinancCheque.hidden = view !== 'financcheque';
-    els.appTitle.textContent = VIEW_TITLES[view].title;
-    els.appSubtitle.textContent = VIEW_TITLES[view].subtitle;
+    document.querySelectorAll('.view[data-view]').forEach(section => {
+      section.hidden = section.dataset.view !== view;
+    });
+    const titles = VIEW_TITLES[view] || VIEW_TITLES.cheque;
+    els.appTitle.textContent = titles.title;
+    els.appSubtitle.textContent = titles.subtitle;
   }
 
   els.navButtons.forEach(btn => {
