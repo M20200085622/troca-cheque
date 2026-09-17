@@ -667,9 +667,17 @@
   if (!state.financCheque.vencimento) state.financCheque.vencimento = defaultVencimentoISODate();
   renderFinancCheque();
 
+  // Service worker removido por enquanto (causava telas com HTML novo + JS antigo
+  // desencontrados durante atualizações). Desregistra qualquer worker/cache antigo
+  // que ainda esteja instalado no aparelho do usuário, pra sempre carregar fresco.
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => { /* offline support best-effort */ });
-    });
+    navigator.serviceWorker.getRegistrations()
+      .then(regs => regs.forEach(reg => reg.unregister()))
+      .catch(() => {});
+  }
+  if ('caches' in window) {
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .catch(() => {});
   }
 })();
