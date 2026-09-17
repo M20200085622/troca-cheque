@@ -67,6 +67,12 @@
     return isoDateFromDate(todayMidnight());
   }
 
+  // Default due date shown to the user: same day-of-month as today, but next month
+  // (a cheque due "today" isn't realistic, so the sensible default is one month out).
+  function defaultVencimentoISODate() {
+    return isoDateFromDate(addMonths(todayMidnight(), 1));
+  }
+
   function isoDateFromDate(d) {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -270,7 +276,7 @@
   });
 
   els.btnAdd.addEventListener('click', () => {
-    state.cheques.push({ valor: '', vencimento: todayISODate() });
+    state.cheques.push({ valor: '', vencimento: defaultVencimentoISODate() });
     saveState();
     render();
   });
@@ -303,7 +309,7 @@
 
   // ---- init ----
   loadState();
-  els.recVencimento.value = todayISODate();
+  els.recVencimento.value = defaultVencimentoISODate();
   els.recVencimento.min = todayISODate();
   render();
 
