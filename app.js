@@ -51,8 +51,8 @@
   };
 
   const MODE_EXPLAIN = {
-    cima: 'Você troca (adianta) o valor agora e o cheque deve cobrir esse valor corrigido para cima: valor × (1 + taxa) elevado ao prazo até o vencimento.',
-    baixo: 'O cheque tem um valor de face e você calcula quanto pagar hoje com desconto: valor × (1 − taxa) elevado ao prazo até o vencimento.'
+    cima: 'Você troca (adianta) o valor agora e o cheque deve cobrir esse valor corrigido para cima, em juros simples: valor × (1 + taxa × prazo) até o vencimento.',
+    baixo: 'O cheque tem um valor de face e você calcula quanto pagar hoje com desconto, em juros simples: valor × (1 − taxa × prazo) até o vencimento.'
   };
 
   // ---- date helpers ----
@@ -132,14 +132,16 @@
     return { days, n };
   }
 
+  // Juros simples (linear), o padrão do mercado para desconto de cheque:
+  // o desconto total é taxa x prazo, sem compor período a período.
   function calcCheque(valor, vencimentoISO, mode, unit, taxaPercent) {
     const v = Number(valor) || 0;
     const { n } = prazoInfo(vencimentoISO, unit);
     const i = (Number(taxaPercent) || 0) / 100;
     if (mode === 'cima') {
-      return v * Math.pow(1 + i, n);
+      return v * (1 + i * n);
     }
-    return v * Math.pow(1 - i, n);
+    return Math.max(0, v * (1 - i * n));
   }
 
   function diasLabel(days) {
