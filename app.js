@@ -869,7 +869,7 @@
       const res = calcCheque(valor, c.vencimento, state.mode, state.unit, taxa);
       base += valor;
       final += res;
-      return [String(idx + 1), pdfMoney(valor), pdfDate(c.vencimento), String(days), pdfPrazoLabel(n, state.unit), pdfNum(fator, 6), pdfMoney(res)];
+      return [String(idx + 1), pdfMoney(valor), pdfDate(c.vencimento), String(days), pdfPrazoLabel(n, state.unit), pdfNum(fator * 100, 4) + ' %', pdfMoney(res)];
     });
     const juros = final - base;
 
@@ -1008,7 +1008,7 @@
       const fator = 1 - (taxa / 100) * n;
       const desc = calcCheque(parcela, d, 'baixo', fc.unit, taxa);
       somaDesc += desc;
-      return [String(idx + 1), pdfDate(d), String(days), pdfPrazoLabel(n, fc.unit), pdfNum(fator, 6), pdfMoney(parcela), pdfMoney(desc)];
+      return [String(idx + 1), pdfDate(d), String(days), pdfPrazoLabel(n, fc.unit), pdfNum(fator * 100, 4) + ' %', pdfMoney(parcela), pdfMoney(desc)];
     });
 
     y = pdfSectionTitle(doc, 'Cheques gerados', y + 8);
