@@ -109,6 +109,7 @@
       </div>
     </section>
 
+    <button class="btn secondary" id="pdfCheque">Gerar relatório (PDF)</button>
     <button class="btn danger ghost" id="btnClear">Limpar tudo</button>
 
   </section>
@@ -159,6 +160,7 @@
 
     <p class="empty-hint" id="finError" style="display:none;">Preencha os outros 3 campos com valores válidos.</p>
 
+    <button class="btn secondary" id="pdfFin">Gerar relatório (PDF)</button>
     <button class="btn danger ghost" id="finClear">Limpar tudo</button>
 
   </section>
@@ -212,6 +214,7 @@
     <p class="empty-hint" id="fcError" style="display:none;">Preencha valor, quantidade e taxa com valores válidos.</p>
 
     <button class="btn secondary" id="fcGerar">Gerar estes cheques na aba Troca</button>
+    <button class="btn secondary" id="pdfFc">Gerar relatório (PDF)</button>
     <button class="btn danger ghost" id="fcClear">Limpar tudo</button>
 
   </section>
@@ -237,6 +240,8 @@
   </div>
 </template>
 
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.plugin.autotable.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

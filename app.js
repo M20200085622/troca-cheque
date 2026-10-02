@@ -658,6 +658,381 @@
     renderFinancCheque();
   });
 
+  // ---- relatório em PDF ----
+  // Usa jsPDF + autoTable (arquivos locais em /vendor, carregados antes deste script).
+
+  const PDF_GREEN = [27, 166, 114];
+  const PDF_DARK = [22, 27, 34];
+  const PDF_GRAY = [102, 111, 122];
+
+  function pdfMoney(n) {
+    return 'R$ ' + formatCurrencyStr(n);
+  }
+
+  function pdfDate(iso) {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  function pdfNum(n, digits) {
+    return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+
+  function pdfPrazoLabel(n, unit) {
+    return unit === 'mes' ? `${pdfNum(n, 3)} mês` : `${pdfNum(n, 0)} dia(s)`;
+  }
+
+  function pdfUnitLabel(unit) {
+    return unit === 'mes' ? 'por mês (mês comercial de 30 dias)' : 'por dia';
+  }
+
+  function pdfAvailable() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) {
+      alert('Não foi possível carregar o gerador de PDF. Recarregue a página e tente de novo.');
+      return false;
+    }
+    return true;
+  }
+
+  function pdfStart(title, subtitle) {
+    const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+    const w = doc.internal.pageSize.getWidth();
+    doc.setFillColor(...PDF_DARK);
+    doc.rect(0, 0, w, 26, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text(title, 14, 12);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(subtitle, 14, 19);
+    const now = new Date();
+    const stamp = `${pdfDate(isoDateFromDate(now))} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    doc.text(`Gerado em ${stamp}`, w - 14, 19, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    return doc;
+  }
+
+  function pdfSectionTitle(doc, text, y) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...PDF_DARK);
+    doc.text(text, 14, y);
+    doc.setTextColor(0, 0, 0);
+    return y + 2;
+  }
+
+  // Tabela de duas colunas (parâmetro / valor)
+  function pdfKeyValue(doc, startY, rows) {
+    doc.autoTable({
+      startY,
+      body: rows,
+      theme: 'plain',
+      styles: { fontSize: 10, cellPadding: { top: 1.4, bottom: 1.4, left: 2, right: 2 } },
+      columnStyles: {
+        0: { textColor: PDF_GRAY, cellWidth: 70 },
+        1: { fontStyle: 'bold' }
+      },
+      margin: { left: 14, right: 14 }
+    });
+    return doc.lastAutoTable.finalY;
+  }
+
+  function pdfTable(doc, startY, head, body, opts = {}) {
+    doc.autoTable({
+      startY,
+      head: [head],
+      body,
+      foot: opts.foot ? [opts.foot] : undefined,
+      showFoot: 'lastPage',
+      theme: 'striped',
+      headStyles: { fillColor: PDF_GREEN, textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      footStyles: { fillColor: PDF_DARK, textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      styles: { fontSize: 9, cellPadding: 1.8 },
+      columnStyles: opts.columnStyles || {},
+      // cabeçalho e rodapé seguem o alinhamento da coluna
+      didParseCell: (data) => {
+        if (data.section === 'body') return;
+        const cs = (opts.columnStyles || {})[data.column.index];
+        if (cs && cs.halign) data.cell.styles.halign = cs.halign;
+      },
+      margin: { left: 14, right: 14 }
+    });
+    return doc.lastAutoTable.finalY;
+  }
+
+  function pdfFinish(doc) {
+    const pages = doc.internal.getNumberOfPages();
+    const w = doc.internal.pageSize.getWidth();
+    const h = doc.internal.pageSize.getHeight();
+    for (let p = 1; p <= pages; p++) {
+      doc.setPage(p);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...PDF_GRAY);
+      doc.text('Desenvolvido por Gabriel V.', 14, h - 8);
+      doc.text(`Página ${p} de ${pages}`, w - 14, h - 8, { align: 'right' });
+    }
+  }
+
+  function pdfNote(doc, y, text) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...PDF_GRAY);
+    const w = doc.internal.pageSize.getWidth() - 28;
+    const lines = doc.splitTextToSize(text, w);
+    doc.text(lines, 14, y);
+    doc.setTextColor(0, 0, 0);
+    return y + lines.length * 4;
+  }
+
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  // iPhone/iPad: abre a folha de compartilhamento (Salvar em Arquivos, WhatsApp, e-mail...).
+  // Desktop: baixa o arquivo.
+  async function pdfDeliver(doc, filename) {
+    pdfFinish(doc);
+    const blob = doc.output('blob');
+    try {
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return; // usuário fechou a folha de compartilhar
+    }
+    const url = URL.createObjectURL(blob);
+    if (isIOS()) {
+      window.open(url, '_blank');
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  function pdfFilename(prefix) {
+    return `${prefix}-${todayISODate()}.pdf`;
+  }
+
+  function reportCheque() {
+    if (!state.cheques.length) {
+      alert('Adicione pelo menos um cheque antes de gerar o relatório.');
+      return;
+    }
+    if (!pdfAvailable()) return;
+
+    const baixo = state.mode === 'baixo';
+    const taxa = Number(state.taxa) || 0;
+    const doc = pdfStart('Troca de Cheque', baixo ? 'Trocar pra baixo (desconto em juros simples)' : 'Trocar pra cima (acréscimo em juros simples)');
+
+    let y = pdfSectionTitle(doc, 'Parâmetros da simulação', 36);
+    y = pdfKeyValue(doc, y, [
+      ['Modo', baixo ? 'Trocar pra baixo' : 'Trocar pra cima'],
+      ['Taxa de juros', `${pdfNum(taxa, 2)} % ${state.unit === 'mes' ? 'ao mês' : 'ao dia'}`],
+      ['Taxa aplicada', pdfUnitLabel(state.unit)],
+      ['Quantidade de cheques', String(state.cheques.length)],
+      ['Fórmula', baixo ? 'valor x [1 - (taxa x prazo)]' : 'valor / [1 - (taxa x prazo)]'],
+      ['Data-base (hoje)', pdfDate(todayISODate())]
+    ]);
+
+    let base = 0;
+    let final = 0;
+    const body = state.cheques.map((c, idx) => {
+      const valor = Number(c.valor) || 0;
+      const { days, n } = prazoInfo(c.vencimento, state.unit);
+      const fator = 1 - (taxa / 100) * n;
+      const res = calcCheque(valor, c.vencimento, state.mode, state.unit, taxa);
+      base += valor;
+      final += res;
+      return [String(idx + 1), pdfMoney(valor), pdfDate(c.vencimento), String(days), pdfPrazoLabel(n, state.unit), pdfNum(fator, 6), pdfMoney(res)];
+    });
+    const juros = final - base;
+
+    y = pdfSectionTitle(doc, 'Cheques', y + 8);
+    y = pdfTable(doc, y,
+      ['#', 'Valor do cheque', 'Vencimento', 'Dias', 'Prazo', 'Fator', baixo ? 'Valor a pagar' : 'Valor a cobrar'],
+      body,
+      {
+        foot: ['', pdfMoney(base), '', '', '', '', pdfMoney(final)],
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { halign: 'right' },
+          3: { halign: 'right', cellWidth: 14 },
+          4: { halign: 'right' },
+          5: { halign: 'right' },
+          6: { halign: 'right', fontStyle: 'bold' }
+        }
+      });
+
+    if (y > 240) { doc.addPage(); y = 20; }
+    y = pdfSectionTitle(doc, 'Resumo', y + 8);
+    y = pdfKeyValue(doc, y, [
+      ['Total dos cheques (valor de face)', pdfMoney(base)],
+      [baixo ? 'Total de juros (desconto)' : 'Total de juros (acréscimo)', (baixo ? '- ' : '+ ') + pdfMoney(Math.abs(juros))],
+      [baixo ? 'Valor final total (a pagar)' : 'Valor final total (a cobrar)', pdfMoney(final)]
+    ]);
+    pdfNote(doc, y + 4, 'Prazo = dias corridos entre hoje e o vencimento' + (state.unit === 'mes' ? ', divididos por 30 (mês comercial). ' : '. ') + 'Valores arredondados em centavos por cheque.');
+
+    pdfDeliver(doc, pdfFilename('troca-cheque'));
+  }
+
+  function reportFinanciamento() {
+    const fin = state.financiamento;
+    const pv = Number(fin.pv);
+    const n = Number(fin.n);
+    const iPct = Number(fin.i);
+    const pmt = Number(fin.pmt);
+    if (!(pv > 0 && n > 0 && pmt > 0 && fin.i !== '' && fin.i != null)) {
+      alert('Preencha o financiamento (3 dos 4 campos) para gerar o relatório.');
+      return;
+    }
+    if (!pdfAvailable()) return;
+
+    const i = iPct / 100;
+    const doc = pdfStart('Financiamento', 'Parcelas fixas - Tabela Price (juros compostos)');
+    const totalPago = roundCents(pmt * n);
+    const totalJuros = roundCents(totalPago - pv);
+    const targetNames = { pv: 'Valor financiado', n: 'Quantidade de meses', i: 'Taxa de juros mensal', pmt: 'Valor da prestação' };
+
+    let y = pdfSectionTitle(doc, 'Dados do financiamento', 36);
+    y = pdfKeyValue(doc, y, [
+      ['Valor financiado', pdfMoney(pv)],
+      ['Quantidade de meses', pdfNum(n, Number.isInteger(n) ? 0 : 2)],
+      ['Taxa de juros mensal', `${pdfNum(iPct, 2)} %`],
+      ['Valor da prestação', pdfMoney(pmt)],
+      ['Campo calculado pelo app', targetNames[fin.target]]
+    ]);
+
+    y = pdfSectionTitle(doc, 'Resumo', y + 8);
+    y = pdfKeyValue(doc, y, [
+      ['Total pago (prestação x meses)', pdfMoney(totalPago)],
+      ['Total de juros', pdfMoney(totalJuros)],
+      ['Custo sobre o valor financiado', `${pdfNum((totalJuros / pv) * 100, 2)} %`]
+    ]);
+
+    // Tabela de amortização (só quando o número de meses é inteiro)
+    if (Number.isInteger(n) && n <= 600) {
+      let saldo = pv;
+      let somaJuros = 0;
+      let somaAmort = 0;
+      const body = [];
+      for (let k = 1; k <= n; k++) {
+        const j = saldo * i;
+        const a = pmt - j;
+        saldo -= a;
+        if (k === n && Math.abs(saldo) < 1) saldo = 0;
+        somaJuros += j;
+        somaAmort += a;
+        body.push([String(k), pdfMoney(pmt), pdfMoney(j), pdfMoney(a), pdfMoney(Math.max(0, saldo))]);
+      }
+      y = pdfSectionTitle(doc, 'Planilha de amortização', y + 8);
+      pdfTable(doc, y,
+        ['Parcela', 'Prestação', 'Juros', 'Amortização', 'Saldo devedor'],
+        body,
+        {
+          foot: ['Total', pdfMoney(totalPago), pdfMoney(somaJuros), pdfMoney(somaAmort), ''],
+          columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+        });
+    }
+
+    pdfDeliver(doc, pdfFilename('financiamento'));
+  }
+
+  function reportFinancCheque() {
+    const fc = state.financCheque;
+    const pv = Number(fc.pv);
+    const qtd = Math.floor(Number(fc.qtd));
+    const taxa = Number(fc.taxa);
+    const startISO = fc.vencimento || defaultVencimentoISODate();
+    const result = pv > 0 && qtd > 0 && fc.taxa !== '' && fc.taxa != null
+      ? financChequeCalc(pv, qtd, taxa, fc.unit, startISO)
+      : null;
+    if (!result || !result.parcela) {
+      alert('Preencha valor, quantidade e taxa do financiamento de cheque para gerar o relatório.');
+      return;
+    }
+    if (!pdfAvailable()) return;
+
+    const parcela = result.parcela;
+    const totalPago = roundCents(parcela * qtd);
+    const totalJuros = roundCents(totalPago - pv);
+    const doc = pdfStart('Financiamento de Cheque', 'Parcelas iguais em juros simples (mesma conta da troca pra baixo)');
+
+    let y = pdfSectionTitle(doc, 'Dados do financiamento', 36);
+    y = pdfKeyValue(doc, y, [
+      ['Valor financiado', pdfMoney(pv)],
+      ['Quantidade de cheques', String(qtd)],
+      ['Taxa de juros', `${pdfNum(taxa, 2)} % ${fc.unit === 'mes' ? 'ao mês' : 'ao dia'}`],
+      ['Taxa aplicada', pdfUnitLabel(fc.unit)],
+      ['Primeiro vencimento', pdfDate(startISO)],
+      ['Demais vencimentos', 'mesmo dia, um mês após o anterior'],
+      ['Data-base (hoje)', pdfDate(todayISODate())],
+      ['Fórmula da parcela', 'valor financiado / soma de [1 - (taxa x prazo)]']
+    ]);
+
+    y = pdfSectionTitle(doc, 'Resumo', y + 8);
+    y = pdfKeyValue(doc, y, [
+      ['Valor de cada cheque', pdfMoney(parcela)],
+      ['Total pago (cheque x quantidade)', pdfMoney(totalPago)],
+      ['Total de juros', pdfMoney(totalJuros)],
+      ['Custo sobre o valor financiado', `${pdfNum((totalJuros / pv) * 100, 2)} %`]
+    ]);
+
+    let somaDesc = 0;
+    const body = result.dates.map((d, idx) => {
+      const { days, n } = prazoInfo(d, fc.unit);
+      const fator = 1 - (taxa / 100) * n;
+      const desc = calcCheque(parcela, d, 'baixo', fc.unit, taxa);
+      somaDesc += desc;
+      return [String(idx + 1), pdfDate(d), String(days), pdfPrazoLabel(n, fc.unit), pdfNum(fator, 6), pdfMoney(parcela), pdfMoney(desc)];
+    });
+
+    y = pdfSectionTitle(doc, 'Cheques gerados', y + 8);
+    y = pdfTable(doc, y,
+      ['#', 'Vencimento', 'Dias', 'Prazo', 'Fator', 'Valor do cheque', 'Valor descontado hoje'],
+      body,
+      {
+        foot: ['', '', '', '', '', pdfMoney(totalPago), pdfMoney(somaDesc)],
+        columnStyles: {
+          0: { cellWidth: 10 },
+          2: { halign: 'right', cellWidth: 14 },
+          3: { halign: 'right' },
+          4: { halign: 'right' },
+          5: { halign: 'right' },
+          6: { halign: 'right', fontStyle: 'bold' }
+        }
+      });
+
+    if (y > 250) { doc.addPage(); y = 20; }
+    y = pdfSectionTitle(doc, 'Conferência (trocando pra baixo)', y + 8);
+    y = pdfKeyValue(doc, y, [
+      ['Soma dos cheques descontados', pdfMoney(roundCents(somaDesc))],
+      ['Valor financiado', pdfMoney(pv)],
+      ['Diferença', pdfMoney(roundCents(somaDesc - pv))]
+    ]);
+    const semValor = result.dates.filter(d => 1 - (taxa / 100) * prazoInfo(d, fc.unit).n <= 0).length;
+    if (semValor > 0) {
+      pdfNote(doc, y + 4, `ATENÇÃO: ${semValor} cheque(s) com fator igual ou menor que zero (taxa x prazo >= 100%). Eles não têm valor de troca, por isso a soma descontada não fecha com o valor financiado. Reduza a quantidade de parcelas ou a taxa.`);
+    } else {
+      pdfNote(doc, y + 4, 'A diferença, quando existe, vem apenas do arredondamento em centavos de cada cheque.');
+    }
+
+    pdfDeliver(doc, pdfFilename('financiamento-cheque'));
+  }
+
+  document.getElementById('pdfCheque').addEventListener('click', reportCheque);
+  document.getElementById('pdfFin').addEventListener('click', reportFinanciamento);
+  document.getElementById('pdfFc').addEventListener('click', reportFinancCheque);
+
   // ---- init ----
   loadState();
   els.recVencimento.value = defaultVencimentoISODate();
