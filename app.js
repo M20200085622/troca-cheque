@@ -840,7 +840,6 @@
       ['Taxa de juros', `${pdfNum(taxa, 2)} % ${state.unit === 'mes' ? 'ao mês' : 'ao dia'}`],
       ['Taxa aplicada', pdfUnitLabel(state.unit)],
       ['Quantidade de cheques', String(state.cheques.length)],
-      ['Fórmula', baixo ? 'valor x [1 - (taxa x prazo)]' : 'valor / [1 - (taxa x prazo)]'],
       ['Data-base (hoje)', pdfDate(todayISODate())]
     ]);
 
@@ -975,8 +974,7 @@
       ['Taxa aplicada', pdfUnitLabel(fc.unit)],
       ['Primeiro vencimento', pdfDate(startISO)],
       ['Demais vencimentos', 'mesmo dia, um mês após o anterior'],
-      ['Data-base (hoje)', pdfDate(todayISODate())],
-      ['Fórmula da parcela', 'valor financiado / soma de [1 - (taxa x prazo)]']
+      ['Data-base (hoje)', pdfDate(todayISODate())]
     ]);
 
     y = pdfSectionTitle(doc, 'Resumo', y + 8);
