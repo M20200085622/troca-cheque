@@ -661,9 +661,19 @@
   // ---- relatório em PDF ----
   // Usa jsPDF + autoTable (arquivos locais em /vendor, carregados antes deste script).
 
-  const PDF_GREEN = [27, 166, 114];
-  const PDF_DARK = [22, 27, 34];
-  const PDF_GRAY = [102, 111, 122];
+  // Tema escuro (mesmas cores do app)
+  const PDF_BG = [11, 15, 20];
+  const PDF_CARD = [22, 27, 34];
+  const PDF_LINE = [35, 42, 52];
+  const PDF_TEXT = [242, 244, 247];
+  const PDF_GRAY = [154, 165, 177];
+  const PDF_GREEN = [61, 220, 151];
+  const PDF_GREEN_DARK = [6, 37, 26];
+
+  function pdfPaintPage(doc) {
+    doc.setFillColor(...PDF_BG);
+    doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F');
+  }
 
   function pdfMoney(n) {
     return 'R$ ' + formatCurrencyStr(n);
@@ -697,9 +707,14 @@
   function pdfStart(title, subtitle) {
     const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
     const w = doc.internal.pageSize.getWidth();
-    doc.setFillColor(...PDF_DARK);
+    pdfPaintPage(doc);
+    // páginas novas (manuais ou criadas pela tabela) também recebem o fundo escuro
+    doc.internal.events.subscribe('addPage', () => pdfPaintPage(doc));
+    doc.setFillColor(...PDF_CARD);
     doc.rect(0, 0, w, 26, 'F');
-    doc.setTextColor(255, 255, 255);
+    doc.setFillColor(...PDF_GREEN);
+    doc.rect(0, 26, w, 0.8, 'F');
+    doc.setTextColor(...PDF_TEXT);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
     doc.text(title, 14, 12);
@@ -708,17 +723,18 @@
     doc.text(subtitle, 14, 19);
     const now = new Date();
     const stamp = `${pdfDate(isoDateFromDate(now))} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    doc.setTextColor(...PDF_GRAY);
     doc.text(`Gerado em ${stamp}`, w - 14, 19, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...PDF_TEXT);
     return doc;
   }
 
   function pdfSectionTitle(doc, text, y) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.setTextColor(...PDF_DARK);
+    doc.setTextColor(...PDF_GREEN);
     doc.text(text, 14, y);
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...PDF_TEXT);
     return y + 2;
   }
 
@@ -728,7 +744,7 @@
       startY,
       body: rows,
       theme: 'plain',
-      styles: { fontSize: 10, cellPadding: { top: 1.4, bottom: 1.4, left: 2, right: 2 } },
+      styles: { fontSize: 10, cellPadding: { top: 1.4, bottom: 1.4, left: 2, right: 2 }, textColor: PDF_TEXT, fillColor: false },
       columnStyles: {
         0: { textColor: PDF_GRAY, cellWidth: 70 },
         1: { fontStyle: 'bold' }
@@ -745,10 +761,11 @@
       body,
       foot: opts.foot ? [opts.foot] : undefined,
       showFoot: 'lastPage',
-      theme: 'striped',
-      headStyles: { fillColor: PDF_GREEN, textColor: 255, fontStyle: 'bold', fontSize: 9 },
-      footStyles: { fillColor: PDF_DARK, textColor: 255, fontStyle: 'bold', fontSize: 9 },
-      styles: { fontSize: 9, cellPadding: 1.8 },
+      theme: 'plain',
+      headStyles: { fillColor: PDF_GREEN, textColor: PDF_GREEN_DARK, fontStyle: 'bold', fontSize: 9 },
+      footStyles: { fillColor: PDF_CARD, textColor: PDF_GREEN, fontStyle: 'bold', fontSize: 9 },
+      alternateRowStyles: { fillColor: PDF_CARD },
+      styles: { fontSize: 9, cellPadding: 1.8, textColor: PDF_TEXT, fillColor: false, lineColor: PDF_LINE },
       columnStyles: opts.columnStyles || {},
       // cabeçalho e rodapé seguem o alinhamento da coluna
       didParseCell: (data) => {
@@ -782,7 +799,7 @@
     const w = doc.internal.pageSize.getWidth() - 28;
     const lines = doc.splitTextToSize(text, w);
     doc.text(lines, 14, y);
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...PDF_TEXT);
     return y + lines.length * 4;
   }
 
